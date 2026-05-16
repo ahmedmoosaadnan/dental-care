@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Auth tokens never contain roles. Lookup from DB.
+    function getUserData(uid) { return get(/databases/$(database)/documents/users/$(uid)).data; }
+    function getMyClinicId() { return getUserData(request.auth.uid).clinicId; }
+    function getMyRole() { return getUserData(request.auth.uid).role; }
+    function isAdmin() { return isSignedIn() && (getMyRole() == 'admin' || request.auth.token.email == 'moosaalvi963@gmail.com'); }
+
+    // --- Collection Rules ---
+
+    // 1. Users
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId &&
+               data.email is string && data.email.size() <= 256 &&
+               data.role in ['admin', 'doctor', 'receptionist', 'assistant'] &&
+               data.clinicId is string && data.clinicId.size() <= 128;
+      }
+
+      allow get: if isSignedIn() && (request.auth.uid == userId || getUserData(userId).clinicId == getMyClinicId());
+      allow list: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && (
+        // Forbid self-assigning admin unless first user/bootstrap
+        (incoming().role != 'admin' || request.auth.token.email == 'moosaalvi963@gmail.com')
+      );
+      
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt'])) ||
+        (isAdmin() && getUserData(userId).clinicId == getMyClinicId() && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'updatedAt']))
+      );
+    }
+
+    // 2. Patients
+    match /patients/{patientId} {
+      function isValidPatient(data) {
+        return data.clinicId == getMyClinicId() &&
+               data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+               data.phone is string && data.phone.size() <= 32 &&
+               (data.get('email', '') == '' || (data.email is string && data.email.size() <= 256)) &&
+               data.get('age', 0) is int &&
+               data.get('gender', 'male') in ['male', 'female', 'other'];
+      }
+
+      allow get: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow list: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      
+      allow create: if isSignedIn() && isValidId(patientId) && isValidPatient(incoming()) && 
+                    incoming().keys().hasAll(['name', 'phone', 'clinicId', 'createdAt', 'updatedAt']) &&
+                    incoming().keys().size() <= 12;
+      
+      allow update: if isSignedIn() && resource.data.clinicId == getMyClinicId() && 
+                    incoming().clinicId == existing().clinicId && 
+                    incoming().updatedAt == request.time &&
+                    isValidPatient(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly([
+                      'name', 'phone', 'email', 'gender', 'age', 'address', 
+                      'medicalHistory', 'dentalHistory', 'emergencyContact', 'updatedAt'
+                    ]);
+      allow delete: if isAdmin() && resource.data.clinicId == getMyClinicId();
+    }
+
+    // 3. Appointments
+    match /appointments/{appointmentId} {
+      function isValidAppointment(data) {
+        return data.clinicId == getMyClinicId() &&
+               data.patientId is string && data.doctorId is string &&
+               data.status in ['scheduled', 'checked-in', 'completed', 'cancelled', 'no-show'];
+      }
+
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow create: if isSignedIn() && isValidId(appointmentId) && isValidAppointment(incoming());
+      allow update: if isSignedIn() && resource.data.clinicId == getMyClinicId() && 
+                    incoming().clinicId == existing().clinicId && isValidAppointment(incoming());
+      allow delete: if isAdmin() && resource.data.clinicId == getMyClinicId();
+    }
+
+    // 4. Invoices
+    match /invoices/{invoiceId} {
+      function isValidInvoice(data) {
+        return data.clinicId == getMyClinicId() &&
+               data.patientId is string && data.totalAmount is number &&
+               data.status in ['unpaid', 'partially-paid', 'paid'];
+      }
+
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow create: if isSignedIn() && isValidId(invoiceId) && isValidInvoice(incoming());
+      allow update: if isSignedIn() && resource.data.clinicId == getMyClinicId() && 
+                    incoming().clinicId == existing().clinicId && (
+                      // Prevent changing status from paid to unpaid
+                      (existing().status != 'paid' || incoming().status == 'paid')
+                    ) && isValidInvoice(incoming());
+    }
+
+    // 5. Inventory
+    match /inventory/{itemId} {
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow write: if isAdmin() && incoming().clinicId == getMyClinicId();
+    }
+
+    // 6. Treatments
+    match /treatments/{treatmentId} {
+      function isValidTreatment(data) {
+        return data.clinicId == getMyClinicId() &&
+               data.patientId is string &&
+               data.procedureName is string && data.procedureName.size() > 0 &&
+               data.status in ['planned', 'in-progress', 'completed'];
+      }
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow create: if isSignedIn() && isValidId(treatmentId) && isValidTreatment(incoming());
+      allow update: if isSignedIn() && resource.data.clinicId == getMyClinicId() && 
+                    incoming().clinicId == existing().clinicId && isValidTreatment(incoming());
+      allow delete: if isAdmin() && resource.data.clinicId == getMyClinicId();
+    }
+
+    // 7. Prescriptions
+    match /prescriptions/{prescriptionId} {
+      function isValidPrescription(data) {
+        return data.clinicId == getMyClinicId() &&
+               data.patientId is string &&
+               data.medicationName is string && data.medicationName.size() > 0 &&
+               data.dosage is string && data.frequency is string && data.duration is string;
+      }
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow create: if isSignedIn() && isValidId(prescriptionId) && isValidPrescription(incoming());
+      allow update: if isSignedIn() && resource.data.clinicId == getMyClinicId() && 
+                    incoming().clinicId == existing().clinicId && isValidPrescription(incoming());
+      allow delete: if isAdmin() && resource.data.clinicId == getMyClinicId();
+    }
+
+    // 8. Doctors
+    match /doctors/{doctorId} {
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow write: if isAdmin() && (resource == null || incoming().clinicId == getMyClinicId());
+    }
+
+    // 9. Treatment Catalog
+    match /treatmentCatalog/{catalogId} {
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow write: if isAdmin() && (resource == null || incoming().clinicId == getMyClinicId());
+    }
+
+    // 10. Reminders
+    match /reminders/{reminderId} {
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow write: if isSignedIn() && (resource == null || (incoming().clinicId == getMyClinicId() && (resource == null || resource.data.clinicId == getMyClinicId())));
+    }
+
+    // 11. Notifications
+    match /notifications/{notificationId} {
+      allow create: if isAdmin() && incoming().clinicId == getMyClinicId(); // Typically system generated or admin
+      allow list: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow get: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow update: if isSignedIn() && resource.data.clinicId == getMyClinicId() && incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isAdmin() && resource.data.clinicId == getMyClinicId();
+    }
+
+    // 12. Media Vault
+    match /media/{mediaId} {
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow create: if isSignedIn() && incoming().clinicId == getMyClinicId() && 
+                    incoming().name is string && incoming().url is string;
+      allow delete: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+    }
+
+    // 13. Clinical Journal
+    match /journal/{entryId} {
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow write: if isSignedIn() && (resource == null || incoming().clinicId == getMyClinicId());
+    }
+
+    // 14. Follow-Up Management
+    match /followups/{followUpId} {
+      allow read: if isSignedIn() && resource.data.clinicId == getMyClinicId();
+      allow write: if isSignedIn() && (resource == null || incoming().clinicId == getMyClinicId());
+    }
+  }
+}

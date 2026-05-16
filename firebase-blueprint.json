@@ -1,0 +1,309 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control info",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "doctor", "receptionist", "assistant"] },
+        "clinicId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Comprehensive patient record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "gender": { "type": "string", "enum": ["male", "female", "other"] },
+        "age": { "type": "integer" },
+        "address": { "type": "string" },
+        "medicalHistory": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "type": { "type": "string", "enum": ["condition", "allergy", "medication", "surgery"] },
+              "value": { "type": "string" },
+              "date": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          } 
+        },
+        "dentalHistory": { "type": "string" },
+        "emergencyContact": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone", "clinicId"]
+    },
+    "Prescription": {
+      "title": "Prescription",
+      "description": "Patient medication prescriptions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "medicationName": { "type": "string" },
+        "dosage": { "type": "string" },
+        "frequency": { "type": "string" },
+        "duration": { "type": "string" },
+        "notes": { "type": "string" },
+        "prescribedBy": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "medicationName", "clinicId"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Clinic visit scheduling",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "reason": { "type": "string" },
+        "status": { "type": "string", "enum": ["scheduled", "checked-in", "completed", "cancelled", "no-show"] }
+      },
+      "required": ["patientId", "doctorId", "startTime", "endTime", "clinicId"]
+    },
+    "Treatment": {
+      "title": "Treatment",
+      "description": "Dental procedure records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "procedureName": { "type": "string" },
+        "notes": { "type": "string" },
+        "cost": { "type": "number" },
+        "status": { "type": "string", "enum": ["planned", "in-progress", "completed"] },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "procedureName", "cost", "clinicId"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Billing information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "treatmentIds": { "type": "array", "items": { "type": "string" } },
+        "totalAmount": { "type": "number" },
+        "discount": { "type": "number" },
+        "tax": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["unpaid", "partially-paid", "paid"] },
+        "paymentMethod": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "totalAmount", "clinicId"]
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "Dental supply tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "quantity": { "type": "number" },
+        "minThreshold": { "type": "number" },
+        "unit": { "type": "string" },
+        "supplier": { "type": "string" },
+        "lastRestockedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "quantity", "clinicId"]
+    },
+    "Doctor": {
+      "title": "Doctor",
+      "description": "Practitioner profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "name": { "type": "string" },
+        "specialization": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "availability": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "clinicId"]
+    },
+    "TreatmentCatalog": {
+      "title": "Treatment Catalog",
+      "description": "Predefined dental procedures and their standard pricing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "baseCost": { "type": "number" },
+        "category": { "type": "string" }
+      },
+      "required": ["name", "baseCost", "clinicId"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "Patient follow-up or task alerts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["follow-up", "medication", "administrative"] },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "sent", "cancelled"] }
+      },
+      "required": ["patientId", "message", "dueDate", "clinicId"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System-wide alerts for staff",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["inventory_low", "appointment_urgent", "system"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "type", "clinicId"]
+    },
+    "MediaAsset": {
+      "title": "Media Asset",
+      "description": "Clinical images and records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "patientName": { "type": "string" },
+        "type": { "type": "string", "enum": ["x-ray", "clinical", "document"] },
+        "size": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "url", "clinicId"]
+    },
+    "FollowUp": {
+      "title": "Follow-Up Task",
+      "description": "Management of post-treatment patient visits",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "reason": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "missed", "completed", "rescheduled"] },
+        "notes": { "type": "string" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "reminderSent": { "type": "boolean" },
+        "assignedDoctorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clinicId", "patientId", "dueDate", "status"]
+    },
+    "JournalEntry": {
+      "title": "Journal Entry",
+      "description": "Clinical log of interactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clinicId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "note": { "type": "string" },
+        "type": { "type": "string", "enum": ["procedure", "consultation", "general", "follow-up"] },
+        "doctorName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["note", "clinicId"]
+    }
+  },
+  "firestore": {
+    "users": {
+        "schema": "User",
+        "description": "Clinic staff profiles"
+    },
+    "patients": {
+        "schema": "Patient",
+        "description": "Patient medical records"
+    },
+    "appointments": {
+        "schema": "Appointment",
+        "description": "Scheduled visits"
+    },
+    "treatments": {
+        "schema": "Treatment",
+        "description": "Procedures performed"
+    },
+    "invoices": {
+        "schema": "Invoice",
+        "description": "Financial billing records"
+    },
+    "prescriptions": {
+        "schema": "Prescription",
+        "description": "Patient medication records"
+    },
+    "inventory": {
+        "schema": "InventoryItem",
+        "description": "Dental supplies tracking"
+    },
+    "doctors": {
+        "schema": "Doctor",
+        "description": "Available practitioners"
+    },
+    "treatmentCatalog": {
+        "schema": "TreatmentCatalog",
+        "description": "Predefined procedure types"
+    },
+    "reminders": {
+        "schema": "Reminder",
+        "description": "Scheduled communications"
+    },
+    "notifications": {
+        "schema": "Notification",
+        "description": "Administrative alerts"
+    },
+    "media": {
+        "schema": "MediaAsset",
+        "description": "Clinical imaging and records"
+    },
+    "followups": {
+        "schema": "FollowUp",
+        "description": "Post-treatment follow-up management"
+    },
+    "journal": {
+        "schema": "JournalEntry",
+        "description": "Clinical recording log"
+    }
+  }
+}
