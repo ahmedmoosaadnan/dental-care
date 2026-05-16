@@ -83,14 +83,14 @@ export default function App() {
 
   if (isSplashVisible) {
     return (
-      <motion.div
+      <motion.div 
         initial={{ opacity: 1 }}
         animate={{ opacity: 0 }}
         transition={{ delay: 1.5, duration: 0.5 }}
         onAnimationComplete={() => setIsSplashVisible(false)}
         className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#0f1f2e]"
       >
-        <motion.div
+        <motion.div 
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.5 }}
@@ -104,7 +104,7 @@ export default function App() {
             <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.4em] mt-2">Powered by DevOxis</p>
           </div>
           <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden mt-4">
-            <motion.div
+            <motion.div 
               initial={{ width: 0 }}
               animate={{ width: "100%" }}
               transition={{ duration: 1.2, ease: "easeInOut" }}
@@ -133,7 +133,7 @@ export default function App() {
         <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/" />} />
         <Route path="/register" element={!user ? <RegisterPage /> : <Navigate to="/" />} />
         <Route path="/forgot-password" element={!user ? <ForgotPasswordPage /> : <Navigate to="/" />} />
-
+        
         <Route element={user ? <DashboardLayout /> : <Navigate to="/login" />}>
           <Route path="/" element={<OverviewPage />} />
           <Route path="/patients" element={<PatientsPage />} />
